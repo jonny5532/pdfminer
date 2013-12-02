@@ -82,7 +82,7 @@ class ImageWriter(object):
         fp = file(path, 'wb')
         if ext == '.jpg':
             raw_data = stream.get_rawdata()
-            if LITERAL_DEVICE_CMYK in image.colorspace:
+            if True:#LITERAL_DEVICE_CMYK in image.colorspace:
                 from PIL import Image
                 from PIL import ImageChops
                 ifp = cStringIO.StringIO(raw_data)
