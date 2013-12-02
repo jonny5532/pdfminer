@@ -73,6 +73,8 @@ class ImageWriter(object):
         elif (image.bits == 1 or
               image.bits == 8 and image.colorspace in (LITERAL_DEVICE_RGB, LITERAL_DEVICE_GRAY)):
             ext = '.%dx%d.bmp' % (width, height)
+        elif image.bits == 8 and LITERAL_DEVICE_CMYK in image.colorspace:
+            ext = '.png'
         else:
             ext = '.%d.%dx%d.img' % (image.bits, width, height)
         name = image.name+ext
@@ -113,6 +115,11 @@ class ImageWriter(object):
             for y in xrange(height):
                 bmp.write_line(y, data[i:i+width])
                 i += width
+        elif image.bits == 8 and LITERAL_DEVICE_CMYK in image.colorspace:
+            from PIL import Image
+            i = Image.frombuffer('CMYK', (width, height), stream.get_data(), 'raw', 'CMYK', 0, 1)
+            i = i.convert('RGB')
+            i.save(fp, 'PNG')
         else:
             fp.write(stream.get_data())
         fp.close()
