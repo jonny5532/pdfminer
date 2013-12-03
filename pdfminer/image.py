@@ -2,6 +2,8 @@
 import cStringIO
 import struct
 import os, os.path
+import tempfile
+import subprocess
 from pdftypes import LITERALS_DCT_DECODE
 from pdfcolor import LITERAL_DEVICE_GRAY, LITERAL_DEVICE_RGB, LITERAL_DEVICE_CMYK
 
@@ -72,7 +74,7 @@ class ImageWriter(object):
             ext = '.jpg'
         elif (image.bits == 1 or
               image.bits == 8 and image.colorspace in (LITERAL_DEVICE_RGB, LITERAL_DEVICE_GRAY)):
-            ext = '.%dx%d.bmp' % (width, height)
+            ext = '.png'
         elif image.bits == 8 and LITERAL_DEVICE_CMYK in image.colorspace:
             ext = '.png'
         else:
@@ -82,7 +84,14 @@ class ImageWriter(object):
         fp = file(path, 'wb')
         if ext == '.jpg':
             raw_data = stream.get_rawdata()
-            if True:#LITERAL_DEVICE_CMYK in image.colorspace:
+            if (os.path.exists("/usr/bin/convert") or os.path.exists("/usr/bin/gm")) and os.path.exists("/usr/share/color/icc/USWebCoatedSWOP.icc") and os.path.exists("/usr/share/color/icc/sRGB.icm"):
+                tmpf = tempfile.NamedTemporaryFile()
+                tmpf.write(raw_data)
+                tmpf.flush()
+                fp.close()
+                cmd = ["/usr/bin/gm", "convert"] if os.path.exists("/usr/bin/gm") else ["/usr/bin/convert"]
+                subprocess.call(cmd + ["jpg:"+tmpf.name, "-negate", "-profile", "/usr/share/color/icc/USWebCoatedSWOP.icc", "-profile", "/usr/share/color/icc/sRGB.icm", "jpg:" + path])
+            else: #if False:#LITERAL_DEVICE_CMYK in image.colorspace:
                 from PIL import Image
                 from PIL import ImageChops
                 ifp = cStringIO.StringIO(raw_data)
@@ -90,31 +99,40 @@ class ImageWriter(object):
                 i = ImageChops.invert(i)
                 i = i.convert('RGB')
                 i.save(fp, 'JPEG')
-            else:
-                fp.write(raw_data)
+            #else:
+            #    fp.write(raw_data)
         elif image.bits == 1:
-            bmp = BMPWriter(fp, 1, width, height)
-            data = stream.get_data()
-            i = 0
-            width = (width+7)//8
-            for y in xrange(height):
-                bmp.write_line(y, data[i:i+width])
-                i += width
+			pass
+            #bmp = BMPWriter(fp, 1, width, height)
+            #data = stream.get_data()
+            #i = 0
+            #width = (width+7)//8
+            #for y in xrange(height):
+                #bmp.write_line(y, data[i:i+width])
+                #i += width
         elif image.bits == 8 and image.colorspace is LITERAL_DEVICE_RGB:
-            bmp = BMPWriter(fp, 24, width, height)
-            data = stream.get_data()
-            i = 0
-            width = width*3
-            for y in xrange(height):
-                bmp.write_line(y, data[i:i+width])
-                i += width
+            from PIL import Image
+            i = Image.frombuffer('RGB', (width, height), stream.get_data(), 'raw', 'RGB', 0, 1)
+            i = i.convert('RGB')
+            i.save(fp, 'PNG')
+            #bmp = BMPWriter(fp, 24, width, height)
+            #data = stream.get_data()
+            #i = 0
+            #width = width*3
+            #for y in xrange(height):
+                #bmp.write_line(y, data[i:i+width])
+                #i += width
         elif image.bits == 8 and image.colorspace is LITERAL_DEVICE_GRAY:
-            bmp = BMPWriter(fp, 8, width, height)
-            data = stream.get_data()
-            i = 0
-            for y in xrange(height):
-                bmp.write_line(y, data[i:i+width])
-                i += width
+            from PIL import Image
+            i = Image.frombuffer('L', (width, height), stream.get_data(), 'raw', 'L', 0, 1)
+            i = i.convert('RGB')
+            i.save(fp, 'PNG')
+            #bmp = BMPWriter(fp, 8, width, height)
+            #data = stream.get_data()
+            #i = 0
+            #for y in xrange(height):
+                #bmp.write_line(y, data[i:i+width])
+                #i += width
         elif image.bits == 8 and LITERAL_DEVICE_CMYK in image.colorspace:
             from PIL import Image
             i = Image.frombuffer('CMYK', (width, height), stream.get_data(), 'raw', 'CMYK', 0, 1)
